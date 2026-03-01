@@ -1,19 +1,18 @@
 import random
+import gensim
+import wikipedia
 
-from app.schemas.vector import CalcRequest, CalcResponse, InitResponse
+# Wikipediaの言語設定
+wikipedia.set_lang("ja")
 
-# TODO: word2vec モデルのロード
-# import numpy as np
-# from gensim.models import KeyedVectors
-# model = KeyedVectors.load_word2vec_format("models/word2vec.bin", binary=True)
+from app.schemas.vector import CalcRequest, CalcResponse, InitResponse, InitRequest
 
 # スタート候補ワード（本実装では word2vec の語彙からランダム抽出に置き換える）
 START_WORD_CANDIDATES = [
-    ("ミジンコ", "非常に小さな甲殻類の一種。池や沼に生息する。"),
-    ("ふきのとう", "フキの若い芽。春の山菜として親しまれる。"),
-    ("そろばん", "計算に用いる伝統的な道具。玉を弾いて数を表す。"),
+    "投資", "学校", "宇宙", "魔法", "侍", "コンピュータ", 
+    "恋愛", "筋肉", "インターネット", "時間", "料理",
+    "人工知能", "地球", "歴史", "音楽", "スポーツ"
 ]
-
 
 class VectorEngine:
     """
@@ -23,18 +22,43 @@ class VectorEngine:
     """
 
     def __init__(self):
-        # TODO: word2vec モデルをロードする
-        # self.model = KeyedVectors.load_word2vec_format("models/word2vec.bin", binary=True)
+        # word2vec モデルをロードする
+        self.model = gensim.models.KeyedVectors.load_word2vec_format("app/models/jawiki.word_vectors.200d.txt", binary=False)
         pass
 
-    def get_start_word(self) -> InitResponse:
-        """
-        ゲームの開始ワードをランダムで返す。
-        本実装では word2vec の語彙からランダム抽出する。
-        """
-        # TODO: self.model.index_to_key からランダム抽出に置き換える
-        word, description = random.choice(START_WORD_CANDIDATES)
-        return InitResponse(start_word=word, description=description)
+    def get_wikipedia_summary(self, word: str) -> str:
+        try:
+            search_results = wikipedia.search(word)
+            if not search_results: return "未知の概念です。"
+            return wikipedia.summary(search_results[0], sentences=1)
+        except wikipedia.exceptions.DisambiguationError as e:
+            return f"複数の意味があります（例: {', '.join(e.options[:3])} など）"
+        except Exception:
+            return "辞書に載っていませんでした。"
+        pass
+
+    def get_start_word(self, req: InitRequest) -> InitResponse:
+            """
+            START_WORD_CANDIDATESからゲームの開始ワードをランダムで返し、
+            ゴールワードに対する順位（rank）を計算して付与する。
+            """
+            # 1. 安全なリストからランダムに1つ抽出
+            word = random.choice(START_WORD_CANDIDATES)
+            
+            # 2. 辞書の意味を取得
+            description = self.get_wikipedia_summary(word)
+
+            # 3. ゴールワードからの順位（rank）を計算
+            rank = 0
+            if self.model is not None and self.req.goal_word in self.model.key_to_index and word in self.model.key_to_index:
+                # goal_wordから見て、選ばれたwordが全語彙の中で何番目に近いかを取得
+                rank = self.model.rank(goal_word, word)
+
+            return InitResponse(
+                start_word=word, 
+                description=description, 
+                rank=rank
+            )
 
     def calc(self, req: CalcRequest) -> CalcResponse:
         """
@@ -42,56 +66,62 @@ class VectorEngine:
         最も近い new_word・ランク・ヒントワードを返す。
         input_word が辞書にない場合は KeyError を raise する（router でキャッチ）。
         """
-        # TODO: 実装例（gensim を使った場合）
-        #
-        # if req.input_word not in self.model:
-        #     raise KeyError(req.input_word)   # router 側で 422 エラーにする
-        #
-        # vec_current = self.model[req.current_word]
-        # vec_input   = self.model[req.input_word]
-        # vec_goal    = self.model[req.goal_word]
-        #
-        # # mix_ratio で混合（1.0 なら input_word 100%、0.0 なら current_word 100%）
-        # vec_new = (1 - req.mix_ratio) * vec_current + req.mix_ratio * vec_input
-        #
-        # # 混合ベクトルに最も近いワードを取得
-        # similar = self.model.similar_by_vector(vec_new, topn=20)
-        # new_word = similar[0][0]
-        #
-        # # goal_word に近いワードのランキング順位を取得
-        # neighbors = self.model.similar_by_vector(vec_goal, topn=500)
-        # rank_map  = {w: i for i, (w, _) in enumerate(neighbors)}
-        # rank      = rank_map.get(new_word, 999)
-        #
-        # # ヒントワード：goal_word と new_word の中間ベクトル付近の語を提案
-        # hint_words = [w for w, _ in self.model.similar_by_vector(
-        #     (vec_new + vec_goal) / 2, topn=8
-        # ) if w != new_word][:6]
-        #
-        # description = f"「{new_word}」の説明（辞書APIと連携予定）"
-        #
-        # return CalcResponse(
-        #     new_word=new_word,
-        #     rank=rank,
-        #     hint_words=hint_words,
-        #     description=description,
-        # )
+        """2つの単語を合成し、結果の辞書を返すコア関数"""
+        if self.model is None:
+            raise ValueError("サーバー準備中です。")
+        if req.current_word not in self.model.key_to_index:
+            raise ValueError(f"「{req.current_word}」は辞書にありません。")
+        if req.input_word not in self.model.key_to_index:
+            raise ValueError(f"「{req.input_word}」は辞書にありません。")
+        if req.goal_word not in self.model.key_to_index:
+            raise ValueError(f"ゴール「{req.goal_word}」が辞書にありません。")
 
-        # ── スタブ：ダミーの値を返す ────────────────────────
-        # input_word が "error" のときだけ KeyError を再現できるようにしておく（テスト用）
-        if req.input_word == "error":
-            raise KeyError(req.input_word)
+        # ベクトル合成
+        v_new = (1.0 - req.mix_ratio) * self.model[req.current_word] + req.mix_ratio * self.model[req.input_word]
+
+        # 近傍単語の抽出
+        candidates = self.model.similar_by_vector(v_new, topn=10)
+        valid_candidates = [w for w, sim in candidates if w not in [req.current_word, req.input_word]]
+        new_word = valid_candidates[0] if valid_candidates else req.current_word
+
+        # ランク判定
+        rank = 0
+        if self.model is not None and req.goal_word in self.model.key_to_index and new_word in self.model.key_to_index:
+            # goal_wordから見て、選ばれたwordが全語彙の中で何番目に近いかを取得
+            rank = self.model.rank(req.goal_word, new_word)
+
+        # ヒントの取得
+        hint_words = []
+        if new_word in self.model.key_to_index and req.goal_word in self.model.key_to_index:
+            # new_word をベースに、goal_word の成分を少しだけ（例：20%）混ぜてベクトルをゴールに向ける
+            # ※ ここの 0.2 という数値をいじることで、ヒントの「露骨さ（難易度）」を調整できます
+            v_hint_direction = 0.8 * self.model[new_word] + 0.2 * self.model[req.goal_word]
+            
+            # 候補を少し多めに取得
+            raw_hints = self.model.similar_by_vector(v_hint_direction, topn=100)
+            
+            # 出てはいけないNGワード（答えのモロバレや、入力したばかりの言葉）を除外
+            forbidden_words = {req.current_word, req.input_word, new_word, req.goal_word}
+            
+            for w, sim in raw_hints:
+                if w not in forbidden_words:
+                    hint_words.append(w)
+                    # ヒントが5個貯まったら終了
+                    if len(hint_words) >= 6:
+                        break
+
+        description = self.get_wikipedia_summary(new_word)
+
+        return {
+            "new_word": new_word,
+            "rank": rank,
+            "hint_words": hint_words,
+            "description": description
+        }
 
         return CalcResponse(
-            new_word=f"（スタブ）{req.input_word} × {req.mix_ratio}",
-            rank=42,
-            hint_words=[
-                "ヒント1",
-                "ヒント2",
-                "ヒント3",
-                "ヒント4",
-                "ヒント5",
-                "ヒント6",
-            ],
-            description=f"「{req.input_word}」を混合した結果のワードです。（スタブ）",
+            new_word=new_word,
+            rank=rank,
+            hint_words=hint_words,
+            description=description
         )

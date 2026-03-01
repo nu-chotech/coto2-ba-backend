@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.vector import CalcRequest, CalcResponse, InitResponse
+from app.schemas.vector import CalcRequest, CalcResponse, InitResponse, InitRequest
 from app.services.vector_engine import VectorEngine
 
 router = APIRouter(prefix="/vector", tags=["vector"])
@@ -15,13 +15,12 @@ def health():
     return {"status": "ok"}
 
 
-@router.get("/init", response_model=InitResponse)
-def init():
+@router.post("/init", response_model=InitResponse)
+def init(req: InitRequest):
     """
     ゲーム開始時に最初のワードをランダムで返す。
-    リクエストはパラメータなしのGETのみ。
     """
-    return engine.get_start_word()
+    return engine.get_start_word(req)
 
 
 @router.post("/calc", response_model=CalcResponse)

@@ -2,6 +2,12 @@ from pydantic import BaseModel, Field
 
 
 # ── /init ──────────────────────────────────────────────
+class InitRequest(BaseModel):
+    """ゲーム開始時のリクエスト"""
+
+    goal_word: str  # ゲームの目標ワード
+
+
 class InitResponse(BaseModel):
     """ゲーム開始時のレスポンス"""
 
