@@ -1,10 +1,18 @@
-from app.schemas.vector import CalcRequest, CalcResponse
+import random
 
-# TODO: word2vec モデルのロード（gensim を使う予定）
+from app.schemas.vector import CalcRequest, CalcResponse, InitResponse
+
+# TODO: word2vec モデルのロード
+# import numpy as np
 # from gensim.models import KeyedVectors
-# model = KeyedVectors.load("models/word2vec.bin")
+# model = KeyedVectors.load_word2vec_format("models/word2vec.bin", binary=True)
 
-NG_WORDS = {"億", "万", "数字", "お金", "金", "円", "富"}
+# スタート候補ワード（本実装では word2vec の語彙からランダム抽出に置き換える）
+START_WORD_CANDIDATES = [
+    ("ミジンコ", "非常に小さな甲殻類の一種。池や沼に生息する。"),
+    ("ふきのとう", "フキの若い芽。春の山菜として親しまれる。"),
+    ("そろばん", "計算に用いる伝統的な道具。玉を弾いて数を表す。"),
+]
 
 
 class VectorEngine:
@@ -15,32 +23,75 @@ class VectorEngine:
     """
 
     def __init__(self):
-        # TODO: word2vec モデルをここでロードする
-        # self.model = KeyedVectors.load("models/word2vec.bin")
-        # self.target_vector = self.model["100億"]
+        # TODO: word2vec モデルをロードする
+        # self.model = KeyedVectors.load_word2vec_format("models/word2vec.bin", binary=True)
         pass
 
+    def get_start_word(self) -> InitResponse:
+        """
+        ゲームの開始ワードをランダムで返す。
+        本実装では word2vec の語彙からランダム抽出する。
+        """
+        # TODO: self.model.index_to_key からランダム抽出に置き換える
+        word, description = random.choice(START_WORD_CANDIDATES)
+        return InitResponse(start_word=word, description=description)
+
     def calc(self, req: CalcRequest) -> CalcResponse:
-        # NGワードチェック
-        if req.input_word in NG_WORDS:
-            return CalcResponse(
-                new_word="（ペナルティ）",
-                new_vector=req.current_vector,
-                sync_rate=0.0,
-                is_ng_word=True,
-            )
+        """
+        current_word と input_word を mix_ratio で混合し、
+        最も近い new_word・ランク・ヒントワードを返す。
+        input_word が辞書にない場合は KeyError を raise する（router でキャッチ）。
+        """
+        # TODO: 実装例（gensim を使った場合）
+        #
+        # if req.input_word not in self.model:
+        #     raise KeyError(req.input_word)   # router 側で 422 エラーにする
+        #
+        # vec_current = self.model[req.current_word]
+        # vec_input   = self.model[req.input_word]
+        # vec_goal    = self.model[req.goal_word]
+        #
+        # # mix_ratio で混合（1.0 なら input_word 100%、0.0 なら current_word 100%）
+        # vec_new = (1 - req.mix_ratio) * vec_current + req.mix_ratio * vec_input
+        #
+        # # 混合ベクトルに最も近いワードを取得
+        # similar = self.model.similar_by_vector(vec_new, topn=20)
+        # new_word = similar[0][0]
+        #
+        # # goal_word に近いワードのランキング順位を取得
+        # neighbors = self.model.similar_by_vector(vec_goal, topn=500)
+        # rank_map  = {w: i for i, (w, _) in enumerate(neighbors)}
+        # rank      = rank_map.get(new_word, 999)
+        #
+        # # ヒントワード：goal_word と new_word の中間ベクトル付近の語を提案
+        # hint_words = [w for w, _ in self.model.similar_by_vector(
+        #     (vec_new + vec_goal) / 2, topn=8
+        # ) if w != new_word][:6]
+        #
+        # description = f"「{new_word}」の説明（辞書APIと連携予定）"
+        #
+        # return CalcResponse(
+        #     new_word=new_word,
+        #     rank=rank,
+        #     hint_words=hint_words,
+        #     description=description,
+        # )
 
-        # TODO: 実際のベクトル演算に置き換える
-        # input_vec = self.model[req.input_word]
-        # new_vec = current + input_vec  if add  else  current - input_vec
-        # new_word = self.model.similar_by_vector(new_vec, topn=1)[0][0]
-        # sync_rate = cosine_similarity(new_vec, self.target_vector) * 100
+        # ── スタブ：ダミーの値を返す ────────────────────────
+        # input_word が "error" のときだけ KeyError を再現できるようにしておく（テスト用）
+        if req.input_word == "error":
+            raise KeyError(req.input_word)
 
-        # ── スタブ：常にダミーの値を返す ──
-        dummy_vector = [0.1] * 300  # word2vec は通常300次元
         return CalcResponse(
-            new_word=f"（スタブ）{req.input_word}の結果",
-            new_vector=dummy_vector,
-            sync_rate=42.0,  # ダミーのシンクロ率
-            is_ng_word=False,
+            new_word=f"（スタブ）{req.input_word} × {req.mix_ratio}",
+            rank=42,
+            hint_words=[
+                "ヒント1",
+                "ヒント2",
+                "ヒント3",
+                "ヒント4",
+                "ヒント5",
+                "ヒント6",
+            ],
+            description=f"「{req.input_word}」を混合した結果のワードです。（スタブ）",
         )

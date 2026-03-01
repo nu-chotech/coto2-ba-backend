@@ -1,17 +1,28 @@
-from pydantic import BaseModel
-from typing import Literal
+from pydantic import BaseModel, Field
 
 
+# ── /init ──────────────────────────────────────────────
+class InitResponse(BaseModel):
+    """ゲーム開始時のレスポンス"""
+
+    start_word: str  # ゲームの最初のワード
+    description: str  # 単語の意味・説明
+
+
+# ── /calc ──────────────────────────────────────────────
 class CalcRequest(BaseModel):
-    """演算リクエストの型"""
-    current_vector: list[float]  # 現在の単語のベクトル
-    input_word: str              # ユーザーが入力した単語
-    operation: Literal["add", "subtract"]  # 足す or 引く
+    """ベクトル計算リクエスト"""
+
+    goal_word: str  # 目標ワード（例: "100億"）
+    current_word: str  # 現在のワード
+    input_word: str  # ユーザーが入力した単語
+    mix_ratio: float = Field(ge=0.0, le=1.0)  # 混合比率（0.0〜1.0）
 
 
 class CalcResponse(BaseModel):
-    """演算レスポンスの型"""
-    new_word: str          # 演算結果に最も近い日本語単語
-    new_vector: list[float]  # 演算後のベクトル
-    sync_rate: float       # 100億とのシンクロ率（0〜100）
-    is_ng_word: bool       # NGワードだったか
+    """ベクトル計算レスポンス"""
+
+    new_word: str  # 計算結果のワード
+    rank: int  # 目標ワードとの近さランキング（0以上、小さいほど近い）
+    hint_words: list[str]  # 次に試すべきおすすめワード候補6件
+    description: str  # new_word の説明
