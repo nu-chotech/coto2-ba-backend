@@ -52,7 +52,7 @@ class VectorEngine:
             rank = 0
             if self.model is not None and self.req.goal_word in self.model.key_to_index and word in self.model.key_to_index:
                 # goal_wordから見て、選ばれたwordが全語彙の中で何番目に近いかを取得
-                rank = self.model.rank(goal_word, word)
+                rank = self.model.rank(self.req.goal_word, word)
 
             return InitResponse(
                 start_word=word, 
