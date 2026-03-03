@@ -14,7 +14,7 @@
 | パッケージ管理     | uv                    |
 | リンター           | Ruff                  |
 | タスクランナー     | taskipy               |
-| デプロイ           | Render                |
+| デプロイ           | Render / Docker       |
 
 ## ディレクトリ構成
 
@@ -22,6 +22,11 @@
 .
 ├── pyproject.toml          # プロジェクト設定・依存関係
 ├── render.yaml             # Render デプロイ設定
+├── Dockerfile              # Docker イメージ定義
+├── docker-compose.yml      # オンプレミス Docker Compose 構成
+├── scripts/
+│   ├── download_model.sh   # モデル自動ダウンロードスクリプト
+│   └── entrypoint.sh       # コンテナ起動エントリポイント
 └── app/
     ├── main.py             # FastAPI アプリケーション本体
     ├── dependencies.py     # 共通ミドルウェア（認証等の雛形）
@@ -144,7 +149,48 @@ Vector 機能の死活確認。
 
 ## デプロイ
 
+### Render（クラウド）
+
 本番環境は [Render](https://render.com/) にデプロイされています。設定は [render.yaml](render.yaml) を参照してください。
+
+### Docker Compose（オンプレミス）
+
+Docker Compose を使ってオンプレミス環境にデプロイできます。
+初回起動時に [WikiEntVec](https://github.com/singletongue/WikiEntVec) の学習済みモデル（約 588 MB、解凍後約 1.6 GB）を自動ダウンロードします。
+
+#### 前提条件
+
+- Docker Engine 20.10+
+- Docker Compose v2+
+- メモリ 4GB 以上
+
+#### 手順
+
+```bash
+# ビルド & 起動（初回はモデル DL に数分かかります）
+docker compose up -d --build
+
+# ログを確認
+docker compose logs -f
+```
+
+ダウンロード済みのモデルは名前付きボリュームに永続化されるため、2回目以降はダウンロードをスキップします。
+
+#### 運用コマンド
+
+```bash
+# 停止
+docker compose down
+
+# 停止 & モデルデータも削除
+docker compose down -v
+
+# 再ビルド（コード変更後）
+docker compose up -d --build
+
+# ヘルスチェック
+curl http://localhost:8000/
+```
 
 ## ライセンス
 
