@@ -1,0 +1,33 @@
+# ============================================================
+# Coto2-Ba Backend — オンプレミス Docker Compose 構成
+# ============================================================
+# 使い方:
+#   docker compose up -d --build
+#
+# 初回起動時にモデル (約1.6GB) を自動ダウンロードします。
+# ダウンロード済みモデルは名前付きボリュームに永続化されるため、
+# 2回目以降はダウンロードをスキップします。
+# ============================================================
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: coto2-ba-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # モデルファイルを永続ボリュームに保存
+      - model-data:/app/app/models
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+
+volumes:
+  model-data:
+    driver: local

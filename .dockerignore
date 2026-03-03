@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[codz]
+*.egg-info
+.venv
+.mypy_cache
+.ruff_cache
+.pytest_cache
+
+# モデルファイル（ボリュームで管理するため除外）
+app/models/*.txt
+
+# IDE
+.vscode
+.idea
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# ドキュメント
+README.md
+LICENSE
+*.md
