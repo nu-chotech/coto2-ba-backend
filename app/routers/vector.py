@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.vector import CalcRequest, CalcResponse, InitResponse, InitRequest
+from app.schemas.vector import CalcRequest, CalcResponse, InitRequest, InitResponse
 from app.services.vector_engine import VectorEngine
 
 router = APIRouter(prefix="/vector", tags=["vector"])
@@ -31,8 +31,8 @@ def calc(req: CalcRequest):
     """
     try:
         return engine.calc(req)
-    except KeyError:
+    except ValueError as e:
         raise HTTPException(
             status_code=422,
-            detail=f"「{req.input_word}」は辞書に存在しないワードです。別のワードを試してください。",
+            detail=str(e),
         )
