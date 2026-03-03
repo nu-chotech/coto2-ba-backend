@@ -12,6 +12,7 @@ class InitResponse(BaseModel):
     """ゲーム開始時のレスポンス"""
 
     start_word: str  # ゲームの最初のワード
+    rank: int  # 目標ワードとの近さランキング（0以上、小さいほど近い）
     description: str  # 単語の意味・説明
 
 

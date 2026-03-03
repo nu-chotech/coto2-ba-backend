@@ -6,7 +6,8 @@ import numpy as np
 import wikipedia  # type: ignore[import-untyped]
 from gensim.models import KeyedVectors  # type: ignore[import-untyped]
 
-from app.schemas.vector import CalcRequest, CalcResponse, InitRequest, InitResponse
+from app.schemas.vector import (CalcRequest, CalcResponse, InitRequest,
+                                InitResponse)
 
 # Wikipediaの言語設定
 wikipedia.set_lang("ja")  # type: ignore[no-untyped-call]
@@ -75,9 +76,11 @@ class VectorEngine:
         """
         word = random.choice(START_WORD_CANDIDATES)
         description = self.get_wikipedia_summary(word)
+        rank = self._rank(req.goal_word, word)
 
         return InitResponse(
             start_word=word,
+            rank=rank,
             description=description,
         )
 
