@@ -13,6 +13,7 @@ class InitResponse(BaseModel):
 
     start_word: str  # ゲームの最初のワード
     rank: int  # 目標ワードとの近さランキング（0以上、小さいほど近い）
+    hint_words: list[str]  # 次に試すべきおすすめワード候補6件
     description: str  # 単語の意味・説明
 
 

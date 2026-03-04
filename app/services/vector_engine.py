@@ -6,8 +6,7 @@ import numpy as np
 import wikipedia  # type: ignore[import-untyped]
 from gensim.models import KeyedVectors  # type: ignore[import-untyped]
 
-from app.schemas.vector import (CalcRequest, CalcResponse, InitRequest,
-                                InitResponse)
+from app.schemas.vector import CalcRequest, CalcResponse, InitRequest, InitResponse
 
 # Wikipediaの言語設定
 wikipedia.set_lang("ja")  # type: ignore[no-untyped-call]
@@ -77,10 +76,16 @@ class VectorEngine:
         word = random.choice(START_WORD_CANDIDATES)
         description = self.get_wikipedia_summary(word)
         rank = self._rank(req.goal_word, word)
+        hint_words = self._hint_words_for(
+            goal_word=req.goal_word,
+            base_word=word,
+            forbidden={word, req.goal_word},
+        )
 
         return InitResponse(
             start_word=word,
             rank=rank,
+            hint_words=hint_words,
             description=description,
         )
 
@@ -143,6 +148,41 @@ class VectorEngine:
 
         return str(candidates[0][0]) if candidates else ""
 
+    def _hint_words_for(
+        self,
+        goal_word: str,
+        base_word: str,
+        forbidden: set[str],
+        *,
+        hint_count: int = 6,
+        hint_ratio: float = 0.2,
+    ) -> list[str]:
+        """
+        base_word をベースに goal_word 方向へ少し寄せたベクトルから
+        ヒントワードを最大 hint_count 個返す。
+        hint_ratio でヒントの露骨さ（難易度）を調整できる。
+        """
+        if (
+            base_word not in self.model.key_to_index
+            or goal_word not in self.model.key_to_index
+        ):
+            return []
+
+        v_hint: np.ndarray = (1.0 - hint_ratio) * self.model[
+            base_word
+        ] + hint_ratio * self.model[goal_word]
+        raw_hints: list[tuple[str, float]] = self.model.similar_by_vector(
+            v_hint, topn=100
+        )
+
+        hint_words: list[str] = []
+        for w, _sim in raw_hints:
+            if w not in forbidden:
+                hint_words.append(str(w))
+                if len(hint_words) >= hint_count:
+                    break
+        return hint_words
+
     def _build_hint_words(
         self,
         req: CalcRequest,
@@ -151,29 +191,11 @@ class VectorEngine:
         hint_count: int = 6,
         hint_ratio: float = 0.2,
     ) -> list[str]:
-        """
-        new_word をベースに goal_word 方向へ少し寄せたベクトルから
-        ヒントワードを最大 hint_count 個返す。
-        hint_ratio でヒントの露骨さ（難易度）を調整できる。
-        """
-        if (
-            new_word not in self.model.key_to_index
-            or req.goal_word not in self.model.key_to_index
-        ):
-            return []
-
-        v_hint: np.ndarray = (1.0 - hint_ratio) * self.model[
-            new_word
-        ] + hint_ratio * self.model[req.goal_word]
-        raw_hints: list[tuple[str, float]] = self.model.similar_by_vector(
-            v_hint, topn=100
+        """calc 用ヒントワード生成（後方互換ラッパー）。"""
+        return self._hint_words_for(
+            goal_word=req.goal_word,
+            base_word=new_word,
+            forbidden={req.current_word, req.input_word, new_word, req.goal_word},
+            hint_count=hint_count,
+            hint_ratio=hint_ratio,
         )
-
-        forbidden = {req.current_word, req.input_word, new_word, req.goal_word}
-        hint_words: list[str] = []
-        for w, _sim in raw_hints:
-            if w not in forbidden:
-                hint_words.append(str(w))
-                if len(hint_words) >= hint_count:
-                    break
-        return hint_words
