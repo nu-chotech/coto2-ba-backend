@@ -15,6 +15,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",  # ローカル開発用
         "https://coto2-ba.vercel.app",  # 本番フロントエンド（後で変更）
+        "https://coto2-ba.ut42tech.com",
     ],
     allow_methods=["*"],
     allow_headers=["*"],
